@@ -287,8 +287,8 @@ html.locked .tray{display:none}
         <button role="tab" id="tabRes" aria-selected="false">Results</button>
       </div>
       <div class="seg" id="groupSeg">
-        <button data-g="colour" class="on">By colour</button>
-        <button data-g="concept">By design</button>
+        <button data-g="concept" class="on">By design</button>
+        <button data-g="colour">By colour</button>
       </div>
       <div class="railend">
         <label class="toggle"><input type="checkbox" id="onlyTodo"> To do</label>
@@ -355,7 +355,7 @@ var PW = "onone";
 var GKEY="onone.gate", LSKEY = "onone.voter", DKEY = "onone.draft.", IKEY = "onone.imported";
 var SWATCH = {Black:"#111116",White:"#F4F4F6",Grey:"#9A9AA4",Maroon:"#7A2035",Green:"#20613F",Mixed:"linear-gradient(90deg,#F4F4F6 50%,#111116 50%)",Unsorted:"transparent"};
 var me = null, draft = {}, remote = {}, dirty = false, saving = false, local = false;
-var api = null, saveTimer = null, lbIdx = -1, filterKey = null, retried = false, groupBy = "colour";
+var api = null, saveTimer = null, lbIdx = -1, filterKey = null, retried = false, groupBy = "concept";
 
 var $ = function(s){return document.querySelector(s)};
 var esc = function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){

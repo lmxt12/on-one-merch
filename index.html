@@ -790,7 +790,11 @@ $("#trayBox").addEventListener("click", function(){ this.select(); });
 
 /* ---------- final call ---------- */
 function renderFinal(){
-  var chosen = scored().filter(function(r){ return picks[r.d.id]; }).sort(sorter());
+  var chosen = scored().filter(function(r){ return picks[r.d.id]; }).sort(function(a,b){
+    return (CONCEPTS.indexOf(a.d.concept) - CONCEPTS.indexOf(b.d.concept))
+      || (COLOURS.indexOf(a.d.colour) - COLOURS.indexOf(b.d.colour))
+      || (b.avg - a.avg) || (a.d.i - b.d.i);
+  });
   var host = $("#viewFinal");
   if(!chosen.length){
     host.innerHTML = '<div class="empty">Nothing picked yet.<br><br>Tick <b>Final call</b> on any design, on the Rate tab or in Results, and it lands here.</div>';
@@ -816,7 +820,7 @@ function renderFinal(){
     + '<p style="margin:0;color:var(--ink-2);font-size:13.5px">Screens are charged per design, about \u00A325 a colour each time, '
     + 'so every extra design here thins out your run and adds setup. Two or three designs at 50 pieces beats six at 50.</p></div>';
 
-  var grid = '<div class="fgrid">' + chosen.map(function(r){
+  var cardOf = function(r){
     var votes = r.votes.map(function(v){ return '<span>'+esc(v.name)+' '+v.s+"\u2605</span>"; }).join("");
     var notes = r.votes.filter(function(v){return v.n}).map(function(v){
       return '<div><b>'+esc(v.name)+'</b> '+esc(v.n)+'</div>'; }).join("");
@@ -828,7 +832,16 @@ function renderFinal(){
       + (notes ? '<div class="fnotes">'+notes+'</div>' : '')
       + '<button class="frm" data-unpick="'+r.d.id+'">Remove</button>'
       + '</div></div>';
-  }).join("") + '</div>';
+  };
+  var grid = CONCEPTS.filter(function(c){ return byConcept[c]; }).map(function(c){
+    var list = chosen.filter(function(r){ return r.d.concept === c; });
+    var cols = [];
+    list.forEach(function(r){ if(cols.indexOf(r.d.colour)<0) cols.push(r.d.colour); });
+    return '<section class="sec">'
+      + '<div class="sechead"><h2>'+esc(c)+'</h2><span class="cnt">'+list.length+(list.length===1?' design':' designs')+'</span>'
+      + '<span class="avg">'+esc(cols.join(", "))+'</span></div>'
+      + '<div class="fgrid">' + list.map(cardOf).join("") + '</div></section>';
+  }).join("");
 
   host.innerHTML = head + note
     + '<div class="rowbtns"><button class="btn accent" id="copyFinal">Copy the list</button>'

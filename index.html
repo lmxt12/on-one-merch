@@ -400,6 +400,8 @@ DESIGNS.forEach(function(d){
   if(COLOURS.indexOf(d.colour)<0) COLOURS.push(d.colour);
   if(CONCEPTS.indexOf(d.concept)<0) CONCEPTS.push(d.concept);
 });
+var BY_CODE = {};
+DESIGNS.forEach(function(d){ BY_CODE[d.code] = d.id; });
 function keyOf(d){ return groupBy === "colour" ? d.colour : d.concept; }
 function groups(){ return groupBy === "colour" ? COLOURS : CONCEPTS; }
 
@@ -455,10 +457,15 @@ function myPayload(){
 }
 
 /* ---------- final call picks ---------- */
-function loadPicks(){ try{ picks = JSON.parse(localStorage.getItem(PKEY)||"{}") || {}; }catch(e){ picks = {}; } }
+var picksLoaded = false;
+function loadPicks(){
+  try{ picks = JSON.parse(localStorage.getItem(PKEY)||"{}") || {}; }catch(e){ picks = {}; }
+  picksLoaded = true;
+}
 function savePicks(){ try{ localStorage.setItem(PKEY, JSON.stringify(picks)); }catch(e){} }
 function pickCount(){ return Object.keys(picks).filter(function(k){return picks[k]}).length; }
 function togglePick(id, on){
+  if(!picksLoaded) loadPicks();
   if(on) picks[id] = 1; else delete picks[id];
   savePicks(); paintPicks(); renderFinal();
 }
@@ -471,6 +478,21 @@ function paintPicks(){
     var lab = cb.closest(".pick"); if(lab) lab.classList.toggle("on", on);
     var card = cb.closest(".card"); if(card) card.classList.toggle("picked", on);
   });
+}
+function picksLink(chosen){
+  var codes = chosen.map(function(r){ return r.d.code; }).join(",");
+  return location.origin + location.pathname + "#picks=" + codes;
+}
+function picksFromHash(){
+  var m = /[#&]picks=([A-Za-z0-9,\-]+)/.exec(location.hash || "");
+  if(!m) return 0;
+  var added = 0;
+  m[1].split(",").forEach(function(code){
+    var id = BY_CODE[code.toUpperCase()];
+    if(id && !picks[id]){ picks[id] = 1; added++; }
+  });
+  if(added) savePicks();
+  return added;
 }
 function pickBox(id){
   return '<label class="pick"><input type="checkbox" data-pick="'+id+'"> Final call</label>';
@@ -625,8 +647,7 @@ function applyFilter(){
 function regroup(g){
   groupBy = g; filterKey = null;
   Array.prototype.forEach.call($("#groupSeg").children, function(b){ b.classList.toggle("on", b.dataset.g===g); });
-  loadPicks();
-renderChips(); renderVote(); updateTray(); paintPicks(); fillInputs(); applyFilter(); renderResults();
+  renderChips(); renderVote(); updateTray(); paintPicks(); fillInputs(); applyFilter(); renderResults();
   window.scrollTo({top:0});
 }
 
@@ -750,9 +771,6 @@ function kpi(k, v, sub){
 }
 
 /* ---------- the copy box ---------- */
-var BY_CODE = {};
-DESIGNS.forEach(function(d){ BY_CODE[d.code] = d.id; });
-
 function mineText(){
   var lines = [];
   var n = 0;
@@ -845,9 +863,13 @@ function renderFinal(){
 
   host.innerHTML = head + note
     + '<div class="rowbtns"><button class="btn accent" id="copyFinal">Copy the list</button>'
+    + '<button class="btn" id="linkFinal">Copy a link to this list</button>'
     + '<button class="btn" id="clearFinal">Clear all</button></div>' + grid;
 
   $("#copyFinal").addEventListener("click", function(){ copy(finalText(chosen), "Final call copied"); });
+  $("#linkFinal").addEventListener("click", function(){
+    copy(picksLink(chosen), "Link copied - save it or send it on");
+  });
   $("#clearFinal").addEventListener("click", function(){
     picks = {}; savePicks(); paintPicks(); renderFinal(); toast("Cleared");
   });
@@ -1065,7 +1087,10 @@ window.addEventListener("beforeunload", function(e){
 
 /* ---------- boot ---------- */
 if(!unlocked()) lock();
+loadPicks();
 renderChips(); renderVote(); updateTray();
+if(picksFromHash()) toast("Picks restored from the link");
+paintPicks(); renderFinal();
 try{ me = localStorage.getItem(LSKEY) || null; }catch(e){}
 if(me) $("#whoName").textContent = me;
 var SEED = {};

@@ -89,9 +89,11 @@ html.locked .page{display:none}
 
 /* ---------- rail ---------- */
 .rail{position:sticky;top:0;z-index:40;background:var(--paper);border-bottom:1px solid var(--line)}
+.railrow[hidden]{display:none}
 .railrow{display:flex;align-items:center;gap:8px;padding:8px 0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .railrow::-webkit-scrollbar{display:none}
 .railrow.two{padding-top:0;border-top:0}
+.seg[hidden]{display:none}
 .seg{display:flex;gap:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px;flex:none}
 .seg button{border:0;background:none;padding:7px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;
   font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
@@ -102,6 +104,7 @@ html.locked .page{display:none}
 .chip[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
 .chip.done{border-color:var(--accent);color:var(--ink)}
 .chip.done .n{color:var(--accent)}
+.railend[hidden]{display:none}
 .railend{margin-left:auto;display:flex;align-items:center;gap:12px;flex:none;padding-left:10px}
 .prog{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--ink-2)}
 .bar{width:74px;height:5px;border-radius:999px;background:var(--line);overflow:hidden}
@@ -211,6 +214,32 @@ textarea:focus{background:var(--surface);border-color:var(--ink-3);outline:none}
   font-size:14px;margin:14px 0 4px;color:var(--ink);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .banner .btn{margin-left:auto}
 
+.pick{margin-left:auto;display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);
+  border:1px solid var(--line);border-radius:999px;padding:5px 10px 5px 8px;white-space:nowrap}
+.pick input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.pick.on{border-color:var(--accent);color:var(--accent)}
+.card.picked{border-color:var(--accent)}
+.sortbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.sortbar label{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.sortbar select{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 14px;
+  color:var(--ink);font-size:14px;max-width:100%}
+.row .pick{margin-left:0;padding:5px 8px}
+.fsum{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.fgrid{display:grid;gap:12px;grid-template-columns:1fr}
+@media (min-width:720px){.fgrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}}
+.fcard{background:var(--surface);border:1px solid var(--accent);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.fcard img{display:block;width:100%;aspect-ratio:4/5;object-fit:contain;background:var(--surface-2);cursor:zoom-in}
+.fcard .fmeta{padding:12px 13px 13px;display:flex;flex-direction:column;gap:8px}
+.fcard .fhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.fcard .fhead b{font-family:var(--mono);font-size:12px;letter-spacing:.08em}
+.fcard .fhead span{font-size:12.5px;color:var(--ink-3)}
+.fcard .fhead .avg{margin-left:auto;font-weight:800;font-stretch:82%;font-size:19px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.fcard .fvotes{font-family:var(--mono);font-size:11px;color:var(--ink-2);display:flex;gap:10px;flex-wrap:wrap}
+.fcard .fnotes{font-size:12.5px;color:var(--ink-2);display:flex;flex-direction:column;gap:4px}
+.fcard .fnotes b{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink)}
+.fcard .frm{align-self:flex-start;border:1px solid var(--line);background:none;border-radius:999px;padding:6px 12px;
+  cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 /* ---------- lightbox ---------- */
 dialog.lb{border:0;padding:0;background:transparent;max-width:100vw;max-height:100vh;width:100%;height:100%;margin:0}
 dialog.lb::backdrop{background:rgba(8,8,12,.9)}
@@ -285,6 +314,7 @@ html.locked .tray{display:none}
       <div class="seg" role="tablist">
         <button role="tab" id="tabVote" aria-selected="true">Rate</button>
         <button role="tab" id="tabRes" aria-selected="false">Results</button>
+        <button role="tab" id="tabFinal" aria-selected="false">Final call <span id="pickN"></span></button>
       </div>
       <div class="seg" id="groupSeg">
         <button data-g="concept" class="on">By design</button>
@@ -303,6 +333,7 @@ html.locked .tray{display:none}
   <div class="wrap">
     <section class="view" id="viewVote"></section>
     <section class="view" id="viewRes" hidden></section>
+    <section class="view" id="viewFinal" hidden></section>
   </div>
 </main>
 
@@ -353,10 +384,11 @@ var DESIGNS = JSON.parse(document.getElementById("designs").textContent);
 var VOTERS = ["Luis","Rico","Orhan"];
 var WORDS = {1:"Pass",2:"Maybe",3:"Print it"};
 var PW = "onone";
-var GKEY="onone.gate", LSKEY = "onone.voter", DKEY = "onone.draft.", IKEY = "onone.imported";
+var GKEY="onone.gate", LSKEY = "onone.voter", DKEY = "onone.draft.", IKEY = "onone.imported", PKEY = "onone.picks";
 var SWATCH = {Black:"#111116",White:"#F4F4F6",Grey:"#9A9AA4",Maroon:"#7A2035",Green:"#20613F",Mixed:"linear-gradient(90deg,#F4F4F6 50%,#111116 50%)",Unsorted:"transparent"};
 var me = null, draft = {}, remote = {}, dirty = false, saving = false, local = false;
 var api = null, saveTimer = null, lbIdx = -1, filterKey = null, retried = false, groupBy = "concept";
+var picks = {}, sortBy = "overall";
 
 var $ = function(s){return document.querySelector(s)};
 var esc = function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
@@ -420,6 +452,28 @@ function myPayload(){
     if(r && (r.s || (r.n && r.n.trim()))) clean[id] = {s:r.s||0, n:(r.n||"").trim()};
   });
   return clean;
+}
+
+/* ---------- final call picks ---------- */
+function loadPicks(){ try{ picks = JSON.parse(localStorage.getItem(PKEY)||"{}") || {}; }catch(e){ picks = {}; } }
+function savePicks(){ try{ localStorage.setItem(PKEY, JSON.stringify(picks)); }catch(e){} }
+function pickCount(){ return Object.keys(picks).filter(function(k){return picks[k]}).length; }
+function togglePick(id, on){
+  if(on) picks[id] = 1; else delete picks[id];
+  savePicks(); paintPicks(); renderFinal();
+}
+function paintPicks(){
+  var n = pickCount();
+  $("#pickN").textContent = n ? "(" + n + ")" : "";
+  Array.prototype.forEach.call(document.querySelectorAll("[data-pick]"), function(cb){
+    var on = !!picks[cb.dataset.pick];
+    cb.checked = on;
+    var lab = cb.closest(".pick"); if(lab) lab.classList.toggle("on", on);
+    var card = cb.closest(".card"); if(card) card.classList.toggle("picked", on);
+  });
+}
+function pickBox(id){
+  return '<label class="pick"><input type="checkbox" data-pick="'+id+'"> Final call</label>';
 }
 
 /* ---------- status ---------- */
@@ -533,7 +587,7 @@ function cardHTML(d){
    + '<img src="'+d.src+'" alt="'+esc(d.name)+'" loading="lazy" width="'+d.w+'" height="'+d.h+'">'
    + '<span class="zoom">Tap to enlarge</span></button>'
    + '<div class="meta">'
-   + '<div class="code"><b>'+esc(d.code)+'</b><span>'+esc(d.concept)+'</span>'+swatch(d.colour)+'<span>'+esc(d.colour)+'</span></div>'
+   + '<div class="code"><b>'+esc(d.code)+'</b><span>'+esc(d.concept)+'</span>'+swatch(d.colour)+'<span>'+esc(d.colour)+'</span>'+pickBox(d.id)+'</div>'
    + '<div class="rate" role="radiogroup" aria-label="Rating for '+esc(d.name)+'">'
    + '<button class="star" data-v="1" role="radio" aria-checked="false" aria-label="1 star, pass"><svg><use href="#star"></use></svg></button>'
    + '<button class="star" data-v="2" role="radio" aria-checked="false" aria-label="2 stars, maybe"><svg><use href="#star"></use></svg></button>'
@@ -547,7 +601,7 @@ function fillInputs(){
     t.value = (myRating(t.dataset.note).n) || "";
   });
   DESIGNS.forEach(function(d){ paintCard(d.id); });
-  paintProgress(); updateTray();
+  paintProgress(); updateTray(); paintPicks();
 }
 function renderChips(){
   $("#chips").innerHTML = '<button class="chip" id="chip_all" data-c="" aria-pressed="true"><span>All</span><span class="n">'+DESIGNS.length+'</span></button>'
@@ -571,7 +625,8 @@ function applyFilter(){
 function regroup(g){
   groupBy = g; filterKey = null;
   Array.prototype.forEach.call($("#groupSeg").children, function(b){ b.classList.toggle("on", b.dataset.g===g); });
-  renderChips(); renderVote(); updateTray(); fillInputs(); applyFilter(); renderResults();
+  loadPicks();
+renderChips(); renderVote(); updateTray(); paintPicks(); fillInputs(); applyFilter(); renderResults();
   window.scrollTo({top:0});
 }
 
@@ -594,7 +649,7 @@ function renderResults(){
   var voters = Object.keys(voted).filter(function(k){return voted[k]>0});
   var withVotes = rows.filter(function(r){return r.n>0});
   var loved = rows.filter(function(r){return r.n>0 && r.avg>=2.5}).length;
-  var top = rows.slice().sort(function(a,b){ return (b.avg-a.avg) || (b.n-a.n) || a.d.i-b.d.i; }).filter(function(r){return r.n>0});
+  var top = rows.filter(function(r){return r.n>0}).sort(sorter());
 
   var kpis = '<div class="kpis">'
     + kpi("Voters in", voters.length, voters.length ? voters.join(", ") : "nobody yet")
@@ -611,8 +666,14 @@ function renderResults(){
     + '<div class="acts"><button class="btn solid" id="impGo">Add them</button>'
     + '<input type="file" id="impFile" accept=".json,application/json" style="max-width:200px"></div></div>';
 
+  var sortOpts = '<option value="overall">Everyone, best first</option>'
+    + voterNames().map(function(n){ return '<option value="'+esc(n)+'">'+esc(n)+"'s picks first</option>"; }).join("")
+    + '<option value="spread">Most argued about</option>';
+  var sortBar = '<div class="sortbar"><label for="sortSel">Sort</label>'
+    + '<select id="sortSel">' + sortOpts + '</select></div>';
+
   var body = top.length
-    ? '<div class="rank">' + top.map(function(r, i){
+    ? sortBar + '<div class="rank">' + top.map(function(r, i){
         var tier = r.avg>=2.5 ? 3 : (r.avg>=1.75 ? 2 : 1);
         var chips = r.votes.map(function(v){ return '<span>'+esc(v.name)+' <b>'+v.s+'&#9733;</b></span>'; }).join("");
         var notes = r.votes.filter(function(v){return v.n}).map(function(v){
@@ -620,9 +681,10 @@ function renderResults(){
         return '<div class="row" data-tier="'+tier+'">'
           + '<div class="pos">'+(i+1)+'</div>'
           + '<img src="'+r.d.src+'" alt="'+esc(r.d.name)+'" data-zoom="'+r.d.id+'">'
-          + '<div><div class="nm">'+esc(r.d.code)+'</div>'
+          + '<div><div class="nm">'+esc(r.d.code)+' <span style="font-weight:400;color:var(--ink-3)">'+esc(r.d.concept)+', '+esc(r.d.colour)+'</span></div>'
           + '<div class="votes">'+chips+'</div>'
-          + (notes? '<div class="notes">'+notes+'</div>':'') + '</div>'
+          + (notes? '<div class="notes">'+notes+'</div>':'')
+          + '<div style="margin-top:8px">'+pickBox(r.d.id)+'</div></div>'
           + '<div class="score"><div class="n">'+r.avg.toFixed(2)+'</div><div class="l">'+r.n+' vote'+(r.n===1?"":"s")+'</div></div>'
           + '</div>';
       }).join("") + '</div>'
@@ -631,6 +693,12 @@ function renderResults(){
   $("#viewRes").innerHTML = kpis + bars + share
     + '<div class="rowbtns"><button class="btn" id="expCsv">Download CSV</button>'
     + '<button class="btn accent" id="sendMine2">Copy my ratings</button></div>' + body;
+  var sel = $("#sortSel");
+  if(sel){
+    sel.value = sortBy;
+    sel.addEventListener("change", function(){ sortBy = this.value; renderResults(); });
+  }
+  paintPicks();
   $("#expCsv").addEventListener("click", exportCsv);
   $("#sendMine2").addEventListener("click", sendMine);
   $("#impGo").addEventListener("click", function(){ importText($("#impBox").value); });
@@ -640,6 +708,29 @@ function renderResults(){
     fr.onload = function(){ importText(String(fr.result)); };
     fr.readAsText(f);
   });
+}
+function starOf(r, who){
+  var v = r.votes.filter(function(x){return x.name===who})[0];
+  return v ? v.s : 0;
+}
+function spreadOf(r){
+  var ss = r.votes.map(function(v){return v.s}).filter(Boolean);
+  return ss.length > 1 ? Math.max.apply(null, ss) - Math.min.apply(null, ss) : 0;
+}
+function sorter(){
+  if(sortBy === "spread"){
+    return function(a,b){ return (spreadOf(b)-spreadOf(a)) || (b.avg-a.avg) || a.d.i-b.d.i; };
+  }
+  if(sortBy !== "overall"){
+    var who = sortBy;
+    return function(a,b){ return (starOf(b,who)-starOf(a,who)) || (b.avg-a.avg) || a.d.i-b.d.i; };
+  }
+  return function(a,b){ return (b.avg-a.avg) || (b.n-a.n) || a.d.i-b.d.i; };
+}
+function voterNames(){
+  var names = Object.keys(remote);
+  if(me && names.indexOf(me)<0) names.push(me);
+  return names;
 }
 function barPanel(rows, mode, title){
   var keys = mode === "colour" ? COLOURS : CONCEPTS;
@@ -696,6 +787,66 @@ $("#trayCopy").addEventListener("click", function(){
   copy(box.value, "Copied - paste it to Luis");
 });
 $("#trayBox").addEventListener("click", function(){ this.select(); });
+
+/* ---------- final call ---------- */
+function renderFinal(){
+  var chosen = scored().filter(function(r){ return picks[r.d.id]; }).sort(sorter());
+  var host = $("#viewFinal");
+  if(!chosen.length){
+    host.innerHTML = '<div class="empty">Nothing picked yet.<br><br>Tick <b>Final call</b> on any design, on the Rate tab or in Results, and it lands here.</div>';
+    return;
+  }
+  var byColour = {}, byConcept = {};
+  chosen.forEach(function(r){
+    byColour[r.d.colour] = (byColour[r.d.colour]||0)+1;
+    byConcept[r.d.concept] = (byConcept[r.d.concept]||0)+1;
+  });
+  var parts = Object.keys(byColour).map(function(k){ return byColour[k]+" "+k.toLowerCase(); });
+  var designs = Object.keys(byConcept).length;
+  var avgAll = chosen.reduce(function(a,b){return a+b.avg},0)/chosen.length;
+
+  var head = '<div class="kpis">'
+    + kpi("Picked", chosen.length, parts.join(", "))
+    + kpi("Concepts", designs, Object.keys(byConcept).join(", "))
+    + kpi("Average score", avgAll.toFixed(2), "out of 3")
+    + kpi("Screen setup", "\u00A3" + (designs * 25), "roughly, at 1 colour each")
+    + '</div>';
+
+  var note = '<div class="panel"><h3>Before you order</h3>'
+    + '<p style="margin:0;color:var(--ink-2);font-size:13.5px">Screens are charged per design, about \u00A325 a colour each time, '
+    + 'so every extra design here thins out your run and adds setup. Two or three designs at 50 pieces beats six at 50.</p></div>';
+
+  var grid = '<div class="fgrid">' + chosen.map(function(r){
+    var votes = r.votes.map(function(v){ return '<span>'+esc(v.name)+' '+v.s+"\u2605</span>"; }).join("");
+    var notes = r.votes.filter(function(v){return v.n}).map(function(v){
+      return '<div><b>'+esc(v.name)+'</b> '+esc(v.n)+'</div>'; }).join("");
+    return '<div class="fcard">'
+      + '<img src="'+r.d.src+'" alt="'+esc(r.d.name)+'" data-zoom="'+r.d.id+'">'
+      + '<div class="fmeta"><div class="fhead"><b>'+esc(r.d.code)+'</b><span>'+esc(r.d.concept)+', '+esc(r.d.colour)+'</span>'
+      + '<span class="avg">'+r.avg.toFixed(2)+'</span></div>'
+      + '<div class="fvotes">'+votes+'</div>'
+      + (notes ? '<div class="fnotes">'+notes+'</div>' : '')
+      + '<button class="frm" data-unpick="'+r.d.id+'">Remove</button>'
+      + '</div></div>';
+  }).join("") + '</div>';
+
+  host.innerHTML = head + note
+    + '<div class="rowbtns"><button class="btn accent" id="copyFinal">Copy the list</button>'
+    + '<button class="btn" id="clearFinal">Clear all</button></div>' + grid;
+
+  $("#copyFinal").addEventListener("click", function(){ copy(finalText(chosen), "Final call copied"); });
+  $("#clearFinal").addEventListener("click", function(){
+    picks = {}; savePicks(); paintPicks(); renderFinal(); toast("Cleared");
+  });
+}
+function finalText(chosen){
+  var lines = ["ON ONE - final call - " + chosen.length + " designs"];
+  chosen.forEach(function(r){
+    lines.push(r.d.code + "  " + r.d.concept + ", " + r.d.colour + "  avg " + r.avg.toFixed(2)
+      + "  (" + r.votes.map(function(v){ return v.name + " " + v.s; }).join(", ") + ")");
+  });
+  return lines.join("\n");
+}
 
 /* ---------- import / export ---------- */
 function importText(txt){
@@ -831,6 +982,8 @@ document.addEventListener("click", function(e){
   var cl = e.target.closest("[data-clear]");
   if(cl){ var cid = cl.dataset.clear; if(draft[cid]) draft[cid].s = 0;
     saveDraft(); paintCard(cid); paintProgress(); scheduleSave(); updateTray(); return; }
+  var un = e.target.closest("[data-unpick]");
+  if(un){ togglePick(un.dataset.unpick, false); return; }
   var idb = e.target.closest("#idList button");
   if(idb){ pickMe(idb.dataset.name); return; }
   var gb = e.target.closest("#groupSeg button");
@@ -847,6 +1000,9 @@ document.addEventListener("click", function(e){
 });
 document.addEventListener("input", function(e){
   if(e.target.matches("[data-note]")) setNote(e.target.dataset.note, e.target.value);
+});
+document.addEventListener("change", function(e){
+  if(e.target.matches("[data-pick]")) togglePick(e.target.dataset.pick, e.target.checked);
 });
 $("#whoBtn").addEventListener("click", openId);
 $("#idGo").addEventListener("click", function(){ pickMe($("#idOther").value); });
@@ -874,11 +1030,20 @@ document.addEventListener("keydown", function(e){
 })();
 $("#tabVote").addEventListener("click", function(){ showTab("vote"); });
 $("#tabRes").addEventListener("click", function(){ showTab("res"); });
+$("#tabFinal").addEventListener("click", function(){ showTab("final"); });
 function showTab(t){
   $("#tabVote").setAttribute("aria-selected", t==="vote");
   $("#tabRes").setAttribute("aria-selected", t==="res");
-  $("#viewVote").hidden = t!=="vote"; $("#viewRes").hidden = t!=="res";
+  $("#tabFinal").setAttribute("aria-selected", t==="final");
+  $("#viewVote").hidden = t!=="vote";
+  $("#viewRes").hidden = t!=="res";
+  $("#viewFinal").hidden = t!=="final";
+  var rating = t === "vote";
+  $("#chips").hidden = !rating;
+  $("#groupSeg").hidden = !rating;
+  document.querySelector(".railend").hidden = !rating;
   if(t==="res") renderResults();
+  if(t==="final") renderFinal();
   window.scrollTo({top:0});
 }
 window.addEventListener("beforeunload", function(e){
@@ -920,7 +1085,7 @@ Promise.resolve().then(function(){
   return fetchVotes();
 }).then(function(j){
   if(j && j.votes) remote = j.votes;
-  loadDraft(); fillInputs(); renderResults();
+  loadDraft(); fillInputs(); renderResults(); renderFinal(); paintPicks();
   if(local){ setStatus("local", ratedCount() + " rated on this phone"); showLocalBanner(); }
   else setStatus("saved", me ? "Ready" : "Pick your name");
   if(!me && unlocked()) openId();

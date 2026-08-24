@@ -111,7 +111,7 @@ html.locked .page{display:none}
 .toggle input{accent-color:var(--accent);width:16px;height:16px}
 
 /* ---------- sections ---------- */
-main{padding:18px 0 90px}
+main{padding:18px 0 108px}
 .sec{margin:0 0 32px;scroll-margin-top:104px}
 .sechead{display:flex;align-items:baseline;gap:12px;padding:0 0 10px;border-bottom:2px solid var(--ink);margin-bottom:14px;flex-wrap:wrap}
 .sechead h2{margin:0;font-size:clamp(19px,5vw,30px);font-weight:800;font-stretch:82%;text-transform:uppercase;letter-spacing:-.01em;line-height:1}
@@ -235,7 +235,19 @@ dialog.id::backdrop{background:rgba(8,8,12,.6)}
   cursor:pointer;text-align:left;font-size:16px;font-weight:600}
 .idother{display:flex;gap:8px}
 .idother input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:12px}
-.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--paper);
+.tray{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--surface);
+  border-top:1px solid var(--line);box-shadow:0 -8px 24px -16px rgba(0,0,0,.5);
+  padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+html.locked .tray{display:none}
+.traybar{display:flex;align-items:center;gap:8px;max-width:1180px;margin:0 auto}
+.trayn{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.traybar .btn{padding:9px 14px}
+.traybar .sp{margin-left:auto}
+.traybox{display:block;max-width:1180px;margin:10px auto 0;width:100%;min-height:150px;font-family:var(--mono);
+  font-size:12px;line-height:1.6;white-space:pre;overflow-wrap:normal;overflow-x:auto}
+.traybox[hidden]{display:none}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:var(--paper);
   padding:10px 18px;border-radius:999px;font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;
   opacity:0;pointer-events:none;transition:opacity .2s;z-index:120;max-width:90vw;text-align:center}
 .toast.on{opacity:1}
@@ -293,6 +305,15 @@ dialog.id::backdrop{background:rgba(8,8,12,.6)}
     <section class="view" id="viewRes" hidden></section>
   </div>
 </main>
+
+<div class="tray" id="tray">
+  <div class="traybar">
+    <span class="trayn" id="trayN">Nothing rated yet</span>
+    <button class="btn sp" id="trayToggle">Show list</button>
+    <button class="btn accent" id="trayCopy">Copy list</button>
+  </div>
+  <textarea class="traybox" id="trayBox" readonly hidden spellcheck="false"></textarea>
+</div>
 </div>
 
 <dialog class="lb" id="lb"><div class="lbin">
@@ -438,22 +459,20 @@ function showLocalBanner(){
   if($("#loBanner")) return;
   var b = document.createElement("div");
   b.className = "banner"; b.id = "loBanner";
-  b.innerHTML = '<span>Your ratings save in this browser. When you have gone through them, send them to Luis.</span>'
-    + '<button class="btn accent" id="sendMine">Send my ratings</button>';
+  b.innerHTML = '<span>Your ratings build up in the box at the bottom of the screen. Copy it over to Luis whenever you like.</span>';
   $("#viewVote").prepend(b);
-  $("#sendMine").addEventListener("click", sendMine);
 }
 
 /* ---------- rating ---------- */
 function setRating(id, v){
   var r = draft[id] || (draft[id] = {s:0,n:""});
   r.s = (r.s === v) ? 0 : v;
-  saveDraft(); paintCard(id); paintProgress(); scheduleSave();
+  saveDraft(); paintCard(id); paintProgress(); scheduleSave(); updateTray();
   if(lbIdx>=0 && DESIGNS[lbIdx].id===id) paintLb();
 }
 function setNote(id, txt){
   var r = draft[id] || (draft[id] = {s:0,n:""});
-  r.n = txt; saveDraft(); scheduleSave();
+  r.n = txt; saveDraft(); scheduleSave(); updateTray();
 }
 function paintRateEl(el, score){
   if(score) el.dataset.score = score; else delete el.dataset.score;
@@ -527,7 +546,7 @@ function fillInputs(){
     t.value = (myRating(t.dataset.note).n) || "";
   });
   DESIGNS.forEach(function(d){ paintCard(d.id); });
-  paintProgress();
+  paintProgress(); updateTray();
 }
 function renderChips(){
   $("#chips").innerHTML = '<button class="chip" id="chip_all" data-c="" aria-pressed="true"><span>All</span><span class="n">'+DESIGNS.length+'</span></button>'
@@ -551,7 +570,7 @@ function applyFilter(){
 function regroup(g){
   groupBy = g; filterKey = null;
   Array.prototype.forEach.call($("#groupSeg").children, function(b){ b.classList.toggle("on", b.dataset.g===g); });
-  renderChips(); renderVote(); fillInputs(); applyFilter(); renderResults();
+  renderChips(); renderVote(); updateTray(); fillInputs(); applyFilter(); renderResults();
   window.scrollTo({top:0});
 }
 
@@ -586,8 +605,8 @@ function renderResults(){
   var bars = barPanel(rows, "colour", "Colours, best first") + barPanel(rows, "concept", "Designs, best first");
 
   var share = '<div class="share"><h3>Bring in someone else\'s ratings</h3>'
-    + '<p>Paste the code they sent you, or pick their file, and their scores join the table below.</p>'
-    + '<textarea id="impBox" placeholder="Paste ratings here"></textarea>'
+    + '<p>Paste the list they sent you and their scores join the table below.</p>'
+    + '<textarea id="impBox" placeholder="Paste their ratings here"></textarea>'
     + '<div class="acts"><button class="btn solid" id="impGo">Add them</button>'
     + '<input type="file" id="impFile" accept=".json,application/json" style="max-width:200px"></div></div>';
 
@@ -610,7 +629,7 @@ function renderResults(){
 
   $("#viewRes").innerHTML = kpis + bars + share
     + '<div class="rowbtns"><button class="btn" id="expCsv">Download CSV</button>'
-    + '<button class="btn accent" id="sendMine2">Send my ratings</button></div>' + body;
+    + '<button class="btn accent" id="sendMine2">Copy my ratings</button></div>' + body;
   $("#expCsv").addEventListener("click", exportCsv);
   $("#sendMine2").addEventListener("click", sendMine);
   $("#impGo").addEventListener("click", function(){ importText($("#impBox").value); });
@@ -638,14 +657,51 @@ function kpi(k, v, sub){
     + (sub? '<div class="sub">'+esc(sub)+'</div>':'') + '</div>';
 }
 
+/* ---------- the copy box ---------- */
+var BY_CODE = {};
+DESIGNS.forEach(function(d){ BY_CODE[d.code] = d.id; });
+
+function mineText(){
+  var lines = [];
+  var n = 0;
+  DESIGNS.forEach(function(d){
+    var r = myRating(d.id);
+    var note = (r.n||"").replace(/\s*\n+\s*/g, " / ").trim();
+    if(!r.s && !note) return;
+    if(r.s) n++;
+    lines.push(d.code + " " + (r.s? r.s+"*" : "-") + (note ? "  " + note : ""));
+  });
+  var head = (me||"Someone") + " - September merch drop - " + n + " of " + DESIGNS.length + " rated";
+  return lines.length ? head + "\n" + lines.join("\n") : head + "\n(nothing rated yet)";
+}
+function updateTray(){
+  var n = ratedCount();
+  $("#trayN").textContent = n ? (n + " of " + DESIGNS.length + " rated" + (me? " as " + me : "")) : "Nothing rated yet";
+  var box = $("#trayBox");
+  if(box) box.value = mineText();
+}
+$("#trayToggle").addEventListener("click", function(){
+  var box = $("#trayBox");
+  box.hidden = !box.hidden;
+  this.textContent = box.hidden ? "Show list" : "Hide list";
+  if(!box.hidden){ updateTray(); box.scrollIntoView({behavior:"smooth", block:"nearest"}); }
+});
+$("#trayCopy").addEventListener("click", function(){
+  updateTray();
+  var box = $("#trayBox");
+  var wasHidden = box.hidden;
+  if(wasHidden){ box.hidden = false; $("#trayToggle").textContent = "Hide list"; }
+  box.focus(); box.select(); box.setSelectionRange(0, box.value.length);
+  copy(box.value, "Copied - paste it to Luis");
+});
+$("#trayBox").addEventListener("click", function(){ this.select(); });
+
 /* ---------- import / export ---------- */
 function importText(txt){
   txt = (txt||"").trim();
   if(!txt){ toast("Nothing to add"); return; }
   var j = null;
-  try{ j = JSON.parse(txt); }catch(e){
-    try{ j = JSON.parse(decodeURIComponent(escape(atob(txt)))); }catch(e2){ j = null; }
-  }
+  try{ j = JSON.parse(txt); }catch(e){ j = parseText(txt); }
   if(!j){ toast("That does not look like ratings"); return; }
   var added = 0;
   if(j.votes && typeof j.votes === "object"){
@@ -656,11 +712,33 @@ function importText(txt){
   if(!added){ toast("No new ratings in that"); return; }
   saveImported(); renderResults(); toast("Added");
 }
+function parseText(txt){
+  var lines = txt.split(/\r?\n/);
+  var name = "", r = {}, hits = 0;
+  lines.forEach(function(line){
+    line = line.trim(); if(!line) return;
+    var m = line.match(/^([A-Za-z]{3}-[A-Za-z]{3}-\d{2})\s+([0-3])\s*\*?\s*(.*)$/);
+    if(m){
+      var id = BY_CODE[m[1].toUpperCase()];
+      if(id){ r[id] = {s:+m[2], n:(m[3]||"").trim()}; hits++; }
+      return;
+    }
+    if(!name){
+      var h = line.split(" - ")[0].trim();
+      if(h && h.length <= 24 && !/^[A-Za-z]{3}-/.test(h)) name = h;
+    }
+  });
+  if(!hits) return null;
+  return {name: name || "Someone", r: r};
+}
 function sendMine(){
   if(!me){ openId(); return; }
-  var payload = JSON.stringify({v:1, name:me, at:new Date().toISOString(), r:myPayload()});
-  download("merch-ratings-" + slug(me) + ".json", payload, "application/json");
-  copy(payload, "Ratings copied - paste them to Luis");
+  var box = $("#trayBox");
+  updateTray();
+  if(box.hidden){ box.hidden = false; $("#trayToggle").textContent = "Hide list"; }
+  box.scrollIntoView({behavior:"smooth", block:"center"});
+  box.focus(); box.select();
+  copy(mineText(), "Copied - paste it to Luis");
 }
 function csv(){
   var names = Object.keys(remote); if(me && names.indexOf(me)<0) names.push(me);
@@ -751,7 +829,7 @@ document.addEventListener("click", function(e){
   }
   var cl = e.target.closest("[data-clear]");
   if(cl){ var cid = cl.dataset.clear; if(draft[cid]) draft[cid].s = 0;
-    saveDraft(); paintCard(cid); paintProgress(); scheduleSave(); return; }
+    saveDraft(); paintCard(cid); paintProgress(); scheduleSave(); updateTray(); return; }
   var idb = e.target.closest("#idList button");
   if(idb){ pickMe(idb.dataset.name); return; }
   var gb = e.target.closest("#groupSeg button");
@@ -808,7 +886,7 @@ window.addEventListener("beforeunload", function(e){
 
 /* ---------- boot ---------- */
 if(!unlocked()) lock();
-renderChips(); renderVote();
+renderChips(); renderVote(); updateTray();
 try{ me = localStorage.getItem(LSKEY) || null; }catch(e){}
 if(me) $("#whoName").textContent = me;
 try{ remote = JSON.parse(localStorage.getItem(IKEY)||"{}") || {}; }catch(e){ remote = {}; }
